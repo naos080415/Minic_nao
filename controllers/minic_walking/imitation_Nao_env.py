@@ -12,7 +12,7 @@ from utils.RobotUtils import RobotFunc
 from utils.MathUtils import GetQuaternionFromAxisAngle, GetEulerFromOrientation, GetQuaternionFromEuler, GetAxisAngleFromQuaternion
 
 class robotisImitationEnv(gym.Env):
-    def __init__(self, timestep=None, trajectorypath="./ref-Data/trajectory.csv", init_actionpath='./ref-Data/initAct.csv', ref_actionpath="./ref-Data/refAct.csv"):
+    def __init__(self, agent_timestep=None, trajectorypath="./ref-Data/trajectory.csv", init_actionpath='./ref-Data/initAct.csv', ref_actionpath="./ref-Data/refAct.csv"):
         """
         In the constructor the observation_space and action_space are set and references to the various components
         of the robot required are initialized here. 
@@ -99,14 +99,21 @@ class robotisImitationEnv(gym.Env):
         """
         self.supervisor = Supervisor()
 
-        if timestep is None:
-            self.timestep = int(self.supervisor.getBasicTimeStep())
+        self.basic_timestep = int(self.supervisor.getBasicTimeStep())
+
+        if agent_timestep is None:
+            self.agent_timestep = int(self.supervisor.getBasicTimeStep())
         else:
-            self.timestep = timestep
+            self.agent_timestep = agent_timestep
+
 
         self.trajectory = np.loadtxt(trajectorypath, delimiter=',', dtype=np.float32)
         self.init_action = np.loadtxt(init_actionpath, delimiter=',', dtype=np.float32)
         self.ref_action = np.loadtxt(ref_actionpath, delimiter=',', dtype=np.float32)
+
+        # 標準化に必要な平均と標準偏差を求める
+        self.trajectory_mean = np.mean(self.trajectory, axis=0)
+        self.trajectory_std  = np.std(self.trajectory, axis=0)
 
         self.setup_agent()      # motor, sensor setting
 
@@ -150,7 +157,7 @@ class robotisImitationEnv(gym.Env):
         
         self.motorNames = RobotFunc.getMotorNames()
         self.motorList, self.motorLimitList = RobotFunc.getMotors(robot=self.supervisor, num=None)
-        self.positionSensors = RobotFunc.getPositionSensors(robot=self.supervisor, timestep=self.timestep, num=None)
+        self.positionSensors = RobotFunc.getPositionSensors(robot=self.supervisor, timestep=self.basic_timestep, num=None)
 
         rl_controlled_motor = ['LHipRoll', 'LHipPitch', 'LKneePitch', 'LAnklePitch', 'LAnkleRoll',
                             'RHipRoll', 'RHipPitch', 'RKneePitch', 'RAnklePitch', 'RAnkleRoll']
@@ -171,7 +178,7 @@ class robotisImitationEnv(gym.Env):
 
         # 初期状態にセット
         cnt = 0
-        while self.supervisor.step(self.timestep) != -1:
+        while self.supervisor.step(self.agent_timestep) != -1:
             init_act = self.init_action[cnt]
             self.apply_action(action=init_act, init_flg=True)
 
@@ -186,7 +193,7 @@ class robotisImitationEnv(gym.Env):
 
         # 初期状態にセット
         cnt = 0
-        while self.supervisor.step(self.timestep) != -1:
+        while self.supervisor.step(self.agent_timestep) != -1:
             cnt += 1
             if cnt > 10:
                 break
@@ -197,9 +204,6 @@ class robotisImitationEnv(gym.Env):
 
     def step(self, action):
         self.apply_action(action)
-
-        while self.supervisor.step(self.timestep) != -1:
-            break
 
         self.phase += 1
         if self.phase >= self.ref_action.shape[0]:
@@ -220,14 +224,34 @@ class robotisImitationEnv(gym.Env):
                 ac = float(ac)
                 self.motorList[i].setPosition(ac)
         else:
-            ref_act = self.get_ref_action()
-            dt = self.timestep / 1000
+            if self.agent_timestep == self.basic_timestep:
+                ref_act = self.get_ref_action()
+                dt = self.basic_timestep / 1000
 
-            for i, ac in enumerate(action):
-                dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
-                ac = float(ref_act[self.joint_index[i]] + dtheta)
-                self.motorList[self.joint_index[i]].setPosition(ac)
+                for i, ac in enumerate(action):
+                    dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
+                    ac = float(ref_act[self.joint_index[i]] + dtheta)
+                    self.motorList[self.joint_index[i]].setPosition(ac)
 
+                while self.supervisor.step(self.agent_timestep) != -1:
+                       break
+
+            else:
+                cnt = 0
+                while self.supervisor.step(self.agent_timestep) != -1:
+                    ref_act = self.get_ref_action()
+                    dt = self.basic_timestep / 1000
+
+                    for i, ac in enumerate(action):
+                        dtheta = (cnt + 1) * self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
+                        ac = np.clip(float(self.motor_position[self.joint_index[i]] + dtheta), 
+                                           self.motorLimitList[self.joint_index[i]][0], 
+                                           self.motorLimitList[self.joint_index[i]][1])
+                        self.motorList[self.joint_index[i]].setPosition(ac)
+
+                    cnt += 1
+                    if cnt >= (self.agent_timestep // self.basic_timestep):
+                        break
 
     def get_reward(self, action):
         sim_obs = self.get_observations()
@@ -257,7 +281,8 @@ class robotisImitationEnv(gym.Env):
         """
         sim_reward+=np.exp(-abs(euler[1])/30)-1
         """
-        total_reward = 0.62*imitation_reward+0.38*sim_reward
+        # total_reward = 0.62*imitation_reward+0.38*sim_reward
+        total_reward = 1*imitation_reward+0*sim_reward
         # total_reward = 1*imitation_reward+0*sim_reward
         """
         if self.is_done():
@@ -288,13 +313,19 @@ class robotisImitationEnv(gym.Env):
     def get_info(self):
         return {}
 
+    def get_standardization(self, x, mean, std):
+        return (x-mean) / std
+
     def get_observations(self):
         obs = self.get_sim_observations()
         ref_obs = self.get_ref_obs() 
 
+        # 標準化処理
+        obs_standardization = self.get_standardization(obs, mean=self.trajectory_mean, std=self.trajectory_std)
+        ref_obs_standardization = self.get_standardization(ref_obs, mean=self.trajectory_mean, std=self.trajectory_std)
         phase = np.array([self.phase])
 
-        return np.concatenate([obs, ref_obs, phase])
+        return np.concatenate([obs_standardization, ref_obs_standardization, phase])
 
     def get_sim_observations(self):
         observation = []

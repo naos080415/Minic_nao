@@ -7,7 +7,7 @@ WorldInfo {
     "The sensors include 2 cameras, 4 microphones, sonar rangefinder, 2 IR emitters and receivers, 1 inertial board, and 8 pressure sensors."
   ]
   title "Aldebaran's Nao"
-  basicTimeStep 40
+  basicTimeStep 10
   FPS 20
   contactProperties [
     ContactProperties {

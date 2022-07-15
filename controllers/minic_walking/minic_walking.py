@@ -20,7 +20,7 @@ def sb3_PPO():
     from stable_baselines3 import PPO
 
     # Use the enviroment of khr3hv Robot
-    nao_env = robotisImitationEnv(timestep=None)
+    nao_env = robotisImitationEnv(agent_timestep=40)
 
     # max_episode_steps = sys.maxsize のときは環境からのリセットのみで動作 →　infinity Task
     # PPO の場合, max_episode_steps = 1000に設定されることが多い
@@ -59,7 +59,7 @@ def sb3_RecurrentPPO():
     from sb3_contrib import RecurrentPPO
 
     # Use the enviroment of khr3hv Robot
-    nao_env = robotisImitationEnv(timestep=None)
+    nao_env = robotisImitationEnv(agent_timestep=None)
 
     # max_episode_steps = sys.maxsize のときは環境からのリセットのみで動作 →　infinity Task
     # PPO の場合, max_episode_steps = 1000に設定されることが多い
@@ -94,5 +94,5 @@ def sb3_RecurrentPPO():
 
 
 if __name__ == '__main__':
-    # sb3_RecurrentPPO()
-    # sb3_contrib()
+    sb3_RecurrentPPO()
+    # sb3_PPO()

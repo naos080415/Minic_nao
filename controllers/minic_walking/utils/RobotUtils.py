@@ -31,9 +31,6 @@ class RobotFunc(object):
         # Get the motors names
         motorNames = RobotFunc.getMotorNames('all')
 
-        for i in motorNames:
-            print(i)
-
         motorList = []
         motorlimitList = []
         for motorName in motorNames:
