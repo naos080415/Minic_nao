@@ -9,7 +9,9 @@ import math
 import random
 
 from utils.RobotUtils import RobotFunc
+from utils.schedules import LinearDecay
 from utils.MathUtils import GetQuaternionFromAxisAngle, GetEulerFromOrientation, GetQuaternionFromEuler, GetAxisAngleFromQuaternion
+from config import hyperparameter as cfg
 
 class robotisImitationEnv(gym.Env):
     def __init__(self, agent_timestep=None, trajectorypath="./ref-Data/trajectory.csv", init_actionpath='./ref-Data/initAct.csv', ref_actionpath="./ref-Data/refAct.csv"):
@@ -112,12 +114,13 @@ class robotisImitationEnv(gym.Env):
         self.ref_action = np.loadtxt(ref_actionpath, delimiter=',', dtype=np.float32)
 
         # 標準化に必要な平均と標準偏差を求める
-        self.trajectory_mean = np.mean(self.trajectory, axis=0)
-        self.trajectory_std  = np.std(self.trajectory, axis=0)
+        tmp = np.copy(self.trajectory)
+        self.trajectory_mean = np.mean(tmp, axis=0)
+        self.trajectory_std  = np.std(tmp, axis=0)
 
         self.setup_agent()      # motor, sensor setting
 
-        self.numObs, self.numAct = 39 * 2 + 1, 10
+        self.numObs, self.numAct = 39 * 2 + 2, 10
         # Lower and maximum values on observation space
         lowObs = -np.inf * np.ones(self.numObs)
         maxObs = np.inf * np.ones(self.numObs)
@@ -137,6 +140,16 @@ class robotisImitationEnv(gym.Env):
         # logger用の変数
         self.logging_reward = []
         self.logging_robotPos = [0] * 3
+
+        # positonを周期的に変換するための変数
+        self.robot_position_when_phase_0 = [0, 0, 0]
+        self.com_position_when_phase_0 = [0, 0, 0]
+
+        # rewardの報酬の比を学習が進むにつれて変更していく
+        self.timesteps = 0
+        self.imitaion_weight_scheduler = LinearDecay(start_value=0.8, final_value=0.2, lr_scale=1)
+        self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
+        self.task_weight = 1 - self.imitaion_weight
 
 
     def setup_agent(self):
@@ -172,6 +185,8 @@ class robotisImitationEnv(gym.Env):
     def reset(self):
         self.phase = 0
         self.counter = 0
+
+        self.elapsed_time = 0       # clock time生成用変数(1エピソードの経過時間を表す)
         
         init_pos = [7.038719910171904e-07, -1.9018715709164663e-07, 0.3056947598600072]
         init_rotation = [-0.0014797995121209266, 0.000984208412616663, 0.9999984207623552, 1.5627820795176646]
@@ -205,17 +220,20 @@ class robotisImitationEnv(gym.Env):
     def step(self, action):
         self.apply_action(action)
 
-        self.phase += 1
-        if self.phase >= self.ref_action.shape[0]:
-            self.phase = 0
-            self.counter += 1
-
         next_observations = self.get_observations()
         rewards = self.get_reward(action)
         done = self.is_done()
         info = self.get_info()
 
         self.com_pos_his = np.array(self.com_pos)
+
+        self.timesteps += 1
+        self.elapsed_time += 1
+        self.phase += 1
+        if self.phase >= self.ref_action.shape[0]:
+            self.phase = 0
+            self.counter += 1
+
         return next_observations, rewards, done, info
 
     def apply_action(self, action, init_flg=False):
@@ -224,37 +242,20 @@ class robotisImitationEnv(gym.Env):
                 ac = float(ac)
                 self.motorList[i].setPosition(ac)
         else:
-            if self.agent_timestep == self.basic_timestep:
-                ref_act = self.get_ref_action()
-                dt = self.basic_timestep / 1000
+            ref_act = self.get_ref_action()
+            dt = self.agent_timestep / 1000
 
-                for i, ac in enumerate(action):
-                    dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
-                    ac = float(ref_act[self.joint_index[i]] + dtheta)
-                    self.motorList[self.joint_index[i]].setPosition(ac)
+            for i, ac in enumerate(action):
+                dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
+                ac = float(ref_act[self.joint_index[i]] + dtheta)
+                self.motorList[self.joint_index[i]].setPosition(ac)
 
-                while self.supervisor.step(self.agent_timestep) != -1:
-                       break
+            while self.supervisor.step(self.agent_timestep) != -1:
+                   break
 
-            else:
-                cnt = 0
-                while self.supervisor.step(self.agent_timestep) != -1:
-                    ref_act = self.get_ref_action()
-                    dt = self.basic_timestep / 1000
-
-                    for i, ac in enumerate(action):
-                        dtheta = (cnt + 1) * self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
-                        ac = np.clip(float(self.motor_position[self.joint_index[i]] + dtheta), 
-                                           self.motorLimitList[self.joint_index[i]][0], 
-                                           self.motorLimitList[self.joint_index[i]][1])
-                        self.motorList[self.joint_index[i]].setPosition(ac)
-
-                    cnt += 1
-                    if cnt >= (self.agent_timestep // self.basic_timestep):
-                        break
 
     def get_reward(self, action):
-        sim_obs = self.get_observations()
+        sim_obs = self.get_sim_observations()
         ref_obs = self.get_ref_obs() 
         joint_penalty = 0
 
@@ -281,9 +282,11 @@ class robotisImitationEnv(gym.Env):
         """
         sim_reward+=np.exp(-abs(euler[1])/30)-1
         """
+        self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
+        self.task_weight = 1 - self.imitaion_weight
+
+        total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
         # total_reward = 0.62*imitation_reward+0.38*sim_reward
-        total_reward = 1*imitation_reward+0*sim_reward
-        # total_reward = 1*imitation_reward+0*sim_reward
         """
         if self.is_done():
             total_reward = 0
@@ -317,21 +320,37 @@ class robotisImitationEnv(gym.Env):
         return (x-mean) / std
 
     def get_observations(self):
-        obs = self.get_sim_observations()
-        ref_obs = self.get_ref_obs() 
+        obs = np.copy(self.get_sim_observations())
+        ref_obs = np.copy(self.get_ref_obs())
+
+        # positionにも周期性をもたせる
+        ref_obs[1] = self.trajectory[self.phase, 1]
+        ref_obs[13] = self.trajectory[self.phase, 13]
+
+        if self.phase == 0:
+            self.robot_position_when_phase_0 = obs[0:3]
+            self.com_position_when_phase_0 = obs[12:15]
+
+        obs[1] -= self.robot_position_when_phase_0[1]
+        obs[13] -= self.com_position_when_phase_0[1]
 
         # 標準化処理
         obs_standardization = self.get_standardization(obs, mean=self.trajectory_mean, std=self.trajectory_std)
         ref_obs_standardization = self.get_standardization(ref_obs, mean=self.trajectory_mean, std=self.trajectory_std)
-        phase = np.array([self.phase])
-
-        return np.concatenate([obs_standardization, ref_obs_standardization, phase])
+        
+        clock_time = [math.sin((2 * math.pi * self.elapsed_time)/self.ref_action.shape[0]),
+                      math.cos((2 * math.pi * self.elapsed_time)/self.ref_action.shape[0])]
+        clock_time = np.array(clock_time)
+        
+        # return np.concatenate([obs_standardization, ref_obs_standardization, clock_time])
+        return np.concatenate([obs, ref_obs, clock_time])
 
     def get_sim_observations(self):
         observation = []
 
         # x,y,z pos; x, y, z, w quaternion
         base_position = self.translation_field.getSFVec3f()
+        print(base_position)
 
         base_orientation = self.rotation_field.getSFRotation()
         orientation = GetQuaternionFromAxisAngle(base_orientation)
