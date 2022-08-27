@@ -1,13 +1,18 @@
 import os
+import torch as th
+import torch.nn
 
-train = True        # Train or evaluate the model
+train = False        # Train or evaluate the model
 use_wandb = True    # wandb(log管理ツール)と連携するか
 using_cuda = False
 
 tensorboard_log_dir = os.environ['HOME'] + '/.cache/tensorboard'
 
 # Change the neural net size or the activation function
-policy_kwargs = dict(  # activation_fn=th.nn.ReLU,
+# 初期値: net_arch=[dict(pi=[64, 64], vf=[64, 64])] using tanh function
+policy_kwargs = dict(  
+    activation_fn=th.nn.Tanh,
+    # activation_fn=th.nn.ReLU,
     net_arch=[dict(pi=[64, 64], vf=[64, 64])])
     # net_arch=[dict(pi=[128, 128], vf=[128, 128])])
 
@@ -15,7 +20,7 @@ policy_kwargs = dict(  # activation_fn=th.nn.ReLU,
 ep_dur_max = 1000
 
 
-if use_wandb:
+if use_wandb and train:
     import wandb
 
     projectName = 'Minic_nao'

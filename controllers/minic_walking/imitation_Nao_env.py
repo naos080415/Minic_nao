@@ -268,15 +268,19 @@ class robotisImitationEnv(gym.Env):
         imitation_reward = 0.6*np.exp(-joint_penalty)+0.3*np.exp(-com_penalty)+0.1*np.exp(-orientation_penalty)
         #sim_reward = 50 * min((self.com_pos[2] - self.com_pos_his[2]),0.02)
 
-        vel = self.com_pos[1] - self.com_pos_his[1]
-        vel_error = 100000*(vel - 0.01)**2
-        sim_reward = np.exp(-vel_error)
+        # vel = self.com_pos[1] - self.com_pos_his[1]
+        # vel_error = 100000*(vel - 0.01)**2
+        # sim_reward = np.exp(-vel_error)
+
+        sim_reward = 2 * min(sim_obs[7], 0.45) + 0.1
 
         AxisAngle = self.rotation_field.getSFRotation()
         orientation = GetQuaternionFromAxisAngle(AxisAngle)
         euler = GetEulerFromOrientation(orientation[3], orientation[0], orientation[1], orientation[2])
+
         if (math.degrees(euler[1])>20 or math.degrees(euler[1])<-20):
             sim_reward -=1
+
 
         self.logging_reward = [0.6*np.exp(-joint_penalty), 0.3*np.exp(-com_penalty), 0.1*np.exp(-orientation_penalty), sim_reward]
         """
@@ -285,8 +289,8 @@ class robotisImitationEnv(gym.Env):
         self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
         self.task_weight = 1 - self.imitaion_weight
 
-        total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
-        # total_reward = 0.62*imitation_reward+0.38*sim_reward
+        # total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
+        total_reward = 0.62*imitation_reward+0.38*sim_reward
         """
         if self.is_done():
             total_reward = 0
@@ -350,7 +354,6 @@ class robotisImitationEnv(gym.Env):
 
         # x,y,z pos; x, y, z, w quaternion
         base_position = self.translation_field.getSFVec3f()
-        print(base_position)
 
         base_orientation = self.rotation_field.getSFRotation()
         orientation = GetQuaternionFromAxisAngle(base_orientation)

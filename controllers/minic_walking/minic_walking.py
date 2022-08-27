@@ -36,7 +36,7 @@ def sb3_PPO():
         model.learn(total_timesteps=cfg.total_timesteps)
         model.save("10_milion_step_MLP")
     else:
-        model = PPO.load("10_milion_step_MLP.zip")
+        model = PPO.load("fixed_task_reward.zip")
 
 
         for i in range(10):
