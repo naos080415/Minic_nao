@@ -5,11 +5,9 @@ import time
 
 from gym.wrappers import TimeLimit
 from typing import Callable
-from collections import deque
 
 from imitation_Nao_env import robotisImitationEnv
-from utils.schedules import LinearDecay, ExponentialSchedule
-# from utils.logger import Original_Logger
+from utils.logger import Original_Logger
 
 from config import hyperparameter as cfg
 
@@ -30,14 +28,20 @@ def sb3_PPO():
         # random_seedの固定(python, numpy, torch)
         set_random_seed(seed=cfg.seed, using_cuda=cfg.using_cuda)
 
+        if cfg.using_cuda:
+            device = 'auto'
+        else:
+            device = 'cpu'
+
         model = PPO("MlpPolicy", nao_env_timelimit, policy_kwargs=cfg.policy_kwargs, learning_rate=cfg.lr, n_steps=cfg.n_steps,
                     batch_size=cfg.batch_size, n_epochs=cfg.n_epochs, gamma=cfg.gamma, gae_lambda=cfg.gae_lambda,
-                    clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, verbose=2)
-        model.learn(total_timesteps=cfg.total_timesteps)
-        model.save("10_milion_step_MLP")
+                    clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, device=device, verbose=2)
+        
+        model.learn(total_timesteps=cfg.total_timesteps, 
+                    callback=Original_Logger(log_dir=cfg.model_dir, gamma=cfg.gamma, queue_size=50, verbose=0))
+        model.save(os.path.join(cfg.model_dir, 'finished_model'))
     else:
         model = PPO.load("fixed_task_reward.zip")
-
 
         for i in range(10):
             obs = nao_env_timelimit.reset()
@@ -69,9 +73,14 @@ def sb3_RecurrentPPO():
         # random_seedの固定(python, numpy, torch)
         set_random_seed(seed=cfg.seed, using_cuda=cfg.using_cuda)
 
+        if cfg.using_cuda:
+            device = 'auto'
+        else:
+            device = 'cpu'
+
         model = RecurrentPPO("MlpLstmPolicy", nao_env_timelimit, policy_kwargs=cfg.policy_kwargs, learning_rate=cfg.lr, n_steps=cfg.n_steps,
                              batch_size=cfg.batch_size, n_epochs=cfg.n_epochs, gamma=cfg.gamma, gae_lambda=cfg.gae_lambda,
-                             clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, verbose=2)
+                             clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, device=device, verbose=2)
         model.learn(total_timesteps=cfg.total_timesteps)
         model.save("10_milion_step_RNN")
 

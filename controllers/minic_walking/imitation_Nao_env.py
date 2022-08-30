@@ -1,12 +1,12 @@
 import sys
-import numpy as np
-
-from controller import Supervisor, Node
-import gym
-from gym.spaces import Box
-from gym.utils import seeding
 import math
 import random
+import gym
+import numpy as np
+
+from gym.spaces import Box
+from gym.utils import seeding
+from controller import Supervisor, Node
 
 from utils.RobotUtils import RobotFunc
 from utils.schedules import LinearDecay
@@ -108,7 +108,6 @@ class robotisImitationEnv(gym.Env):
         else:
             self.agent_timestep = agent_timestep
 
-
         self.trajectory = np.loadtxt(trajectorypath, delimiter=',', dtype=np.float32)
         self.init_action = np.loadtxt(init_actionpath, delimiter=',', dtype=np.float32)
         self.ref_action = np.loadtxt(ref_actionpath, delimiter=',', dtype=np.float32)
@@ -139,7 +138,7 @@ class robotisImitationEnv(gym.Env):
 
         # logger用の変数
         self.logging_reward = []
-        self.logging_robotPos = [0] * 3
+        self.logging_robot_position = [0] * 3
 
         # positonを周期的に変換するための変数
         self.robot_position_when_phase_0 = [0, 0, 0]
@@ -148,9 +147,9 @@ class robotisImitationEnv(gym.Env):
         # rewardの報酬の比を学習が進むにつれて変更していく
         self.timesteps = 0
         self.imitaion_weight_scheduler = LinearDecay(start_value=0.8, final_value=0.2, lr_scale=1)
-        self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
-        self.task_weight = 1 - self.imitaion_weight
 
+        # ロボットのz軸が一定の高さ以下になったらエピソードを終了する
+        self.naoRobot_hight = 0.333     # 直立時のz軸の値（ロボットの全長と異なる場合もある）
 
     def setup_agent(self):
         """
@@ -173,7 +172,7 @@ class robotisImitationEnv(gym.Env):
         self.positionSensors = RobotFunc.getPositionSensors(robot=self.supervisor, timestep=self.basic_timestep, num=None)
 
         rl_controlled_motor = ['LHipRoll', 'LHipPitch', 'LKneePitch', 'LAnklePitch', 'LAnkleRoll',
-                            'RHipRoll', 'RHipPitch', 'RKneePitch', 'RAnklePitch', 'RAnkleRoll']
+                               'RHipRoll', 'RHipPitch', 'RKneePitch', 'RAnklePitch', 'RAnkleRoll']
 
         self.joint_index = [] 
         for i, name in enumerate(self.motorNames):
@@ -247,18 +246,18 @@ class robotisImitationEnv(gym.Env):
 
             for i, ac in enumerate(action):
                 dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
+                dtheta = 0
                 ac = float(ref_act[self.joint_index[i]] + dtheta)
                 self.motorList[self.joint_index[i]].setPosition(ac)
 
             while self.supervisor.step(self.agent_timestep) != -1:
-                   break
-
+               break    # TODO: ここの字下げが一つ多くなっていた。どういう影響がある？
 
     def get_reward(self, action):
         sim_obs = self.get_sim_observations()
         ref_obs = self.get_ref_obs() 
-        joint_penalty = 0
 
+        joint_penalty = 0
         for i in range(len(self.joint_index)):
             error = 1/len(self.joint_index) * (ref_obs[15 + self.joint_index[i]]-sim_obs[15 + self.joint_index[i]])**2
             joint_penalty += error*30 
@@ -286,11 +285,15 @@ class robotisImitationEnv(gym.Env):
         """
         sim_reward+=np.exp(-abs(euler[1])/30)-1
         """
+
+        # 報酬の比を変更する場合
         self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
         self.task_weight = 1 - self.imitaion_weight
+        # 報酬の比を変更しない場合
+        # self.imitaion_weight = 0.62
+        # self.task_weight = 1 - self.imitaion_weight
 
-        # total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
-        total_reward = 0.62*imitation_reward+0.38*sim_reward
+        total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
         """
         if self.is_done():
             total_reward = 0
@@ -308,7 +311,7 @@ class robotisImitationEnv(gym.Env):
         orientation = GetQuaternionFromAxisAngle(AxisAngle)
         euler = GetEulerFromOrientation(orientation[3], orientation[0], orientation[1], orientation[2])
 
-        if base_position[2] < 0.28:
+        if base_position[2] < (self.naoRobot_hight * 0.85):     # nao Robotを利用するとき
             done = True
         if (math.degrees(euler[0]) > 45 or math.degrees(euler[0]) < -45):
             done = True
@@ -383,7 +386,7 @@ class robotisImitationEnv(gym.Env):
         self.motor_position = RobotFunc.getValuePositionSensor(self.positionSensors)
         observation.extend(self.motor_position)
         
-        self.logging_robotPos = base_position
+        self.logging_robot_position = base_position
 
         return np.array(observation)
 

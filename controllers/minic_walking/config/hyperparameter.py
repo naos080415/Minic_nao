@@ -1,12 +1,17 @@
 import os
+import datetime
 import torch as th
 import torch.nn
 
-train = False        # Train or evaluate the model
+train = True        # Train or evaluate the model
 use_wandb = True    # wandb(log管理ツール)と連携するか
 using_cuda = False
 
 tensorboard_log_dir = os.environ['HOME'] + '/.cache/tensorboard'
+now_time = datetime.datetime.now()
+model_dir = os.environ['HOME'] + '/.results/' + str(now_time.year) + "-" + str(now_time.month) + "-" + str(
+    now_time.day) + " " + str(now_time.hour) + ":" + str(now_time.minute) + "/"  # Output dir
+
 
 # Change the neural net size or the activation function
 # 初期値: net_arch=[dict(pi=[64, 64], vf=[64, 64])] using tanh function
@@ -23,7 +28,7 @@ ep_dur_max = 1000
 if use_wandb and train:
     import wandb
 
-    projectName = 'Minic_nao'
+    projectName = 'changing_RewardWight'
 
     # Init the wandb providing the project name
     wandb_cache_dir = os.environ['HOME'] + '/.cache/'
