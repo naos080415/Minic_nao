@@ -3,20 +3,29 @@ import math
 
 class RobotFunc(object):
     def __init__(self):
-        uncontrolled_motorNames = ["LPhalanx1", "LPhalanx2", "LPhalanx3", "LPhalanx4",
-                                   "LPhalanx5", "LPhalanx6", "LPhalanx7", "LPhalanx8", 
-                                   "RPhalanx1", "RPhalanx2", "RPhalanx3", "RPhalanx4",
-                                   "RPhalanx5", "RPhalanx6", "RPhalanx7", "RPhalanx8"]
+        nao_uncontrolled_motorNames = ["LPhalanx1", "LPhalanx2", "LPhalanx3", "LPhalanx4",
+                                       "LPhalanx5", "LPhalanx6", "LPhalanx7", "LPhalanx8", 
+                                       "RPhalanx1", "RPhalanx2", "RPhalanx3", "RPhalanx4",
+                                       "RPhalanx5", "RPhalanx6", "RPhalanx7", "RPhalanx8"]  # nao Robot (noUsed)
 
 
-    def getMotorNames(name_type='all'):
-        if name_type == 'all':
+    def getMotorNames(robot_name="nao"):
+        if robot_name == "nao":
             return ["HeadPitch", "HeadYaw", "LAnklePitch", "LAnkleRoll",
                     "LElbowRoll", "LElbowYaw", "LHipPitch", "LHipRoll",
                     "LHipYawPitch", "LKneePitch", "LShoulderPitch", "LShoulderRoll",
                     "LWristYaw", "RAnklePitch", "RAnkleRoll", "RElbowRoll",
                     "RElbowYaw", "RHipPitch", "RHipRoll", "RHipYawPitch",
                     "RKneePitch", "RShoulderPitch", "RShoulderRoll", "RWristYaw"]
+        elif robot_name == "atlas":
+            return ["BackLbz", "BackMby", "BackUbx", "LArmUsy", 
+                    "LArmShx", "LArmEly", "LArmElx", "LArmUwy", 
+                    "LArmMwx", "NeckAy", "RArmUsy", "RArmShx", 
+                    "RArmEly", "RArmElx", "RArmUwy", "RArmMwx", 
+                    "LLegUhz", "LLegMhx", "LLegLhy", "LLegKny", 
+                    "LLegUay", "LLegLax", "RLegUhz", "RLegMhx", 
+                    "RLegLhy", "RLegKny", "RLegUay", "RLegLax"] 
+ 
 
     def setMotorLimit(motorName):
         lower = -float('inf')
@@ -24,12 +33,12 @@ class RobotFunc(object):
 
         return [lower, upper]
 
-    def getMotors(robot, num):
+    def getMotors(robot, robot_name, num):
         """
         Get 6 (legs-all) or 4 (leg)  motors from the robot model.
         """
         # Get the motors names
-        motorNames = RobotFunc.getMotorNames('all')
+        motorNames = RobotFunc.getMotorNames(robot_name=robot_name)
 
         motorList = []
         motorlimitList = []
@@ -43,9 +52,9 @@ class RobotFunc(object):
 
         return motorList, motorlimitList
 
-    def getPositionSensors(robot, timestep, num):
+    def getPositionSensors(robot, robot_name, timestep, num):
         # Get the motors names
-        motorNames = RobotFunc.getMotorNames('all')
+        motorNames = RobotFunc.getMotorNames(robot_name=robot_name)
 
         positionSensorList = []
         for motor_name in motorNames:

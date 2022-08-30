@@ -35,10 +35,10 @@ def sb3_PPO():
 
         model = PPO("MlpPolicy", nao_env_timelimit, policy_kwargs=cfg.policy_kwargs, learning_rate=cfg.lr, n_steps=cfg.n_steps,
                     batch_size=cfg.batch_size, n_epochs=cfg.n_epochs, gamma=cfg.gamma, gae_lambda=cfg.gae_lambda,
-                    clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, device=device, verbose=2)
+                    clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, device=device, verbose=cfg.verbose)
         
         model.learn(total_timesteps=cfg.total_timesteps, 
-                    callback=Original_Logger(log_dir=cfg.model_dir, gamma=cfg.gamma, queue_size=50, verbose=0))
+                    callback=Original_Logger(log_dir=cfg.model_dir, gamma=cfg.gamma, queue_size=50, verbose=cfg.verbose))
         model.save(os.path.join(cfg.model_dir, 'finished_model'))
     else:
         model = PPO.load("fixed_task_reward.zip")
@@ -80,7 +80,7 @@ def sb3_RecurrentPPO():
 
         model = RecurrentPPO("MlpLstmPolicy", nao_env_timelimit, policy_kwargs=cfg.policy_kwargs, learning_rate=cfg.lr, n_steps=cfg.n_steps,
                              batch_size=cfg.batch_size, n_epochs=cfg.n_epochs, gamma=cfg.gamma, gae_lambda=cfg.gae_lambda,
-                             clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, device=device, verbose=2)
+                             clip_range=cfg.clip_param, ent_coef=cfg.ent_coef, tensorboard_log=cfg.tensorboard_log_dir, device=device, verbose=cfg.verbose)
         model.learn(total_timesteps=cfg.total_timesteps)
         model.save("10_milion_step_RNN")
 

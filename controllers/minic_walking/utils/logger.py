@@ -10,7 +10,7 @@ class Original_Logger(BaseCallback):
         最適なモデルを log_dir に保存する処理
     """
 
-    def __init__(self, log_dir, gamma, queue_size=50, verbose=2):
+    def __init__(self, log_dir, gamma, queue_size=50, verbose=0):
         super(Original_Logger, self).__init__(verbose)
 
         # mean_rewardを計算するための変数

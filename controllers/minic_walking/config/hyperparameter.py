@@ -40,6 +40,7 @@ if use_wandb and train:
 """
 PPOのときのパラメータ
 """
+# verbose – (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug 
 
 total_timesteps = int(10e6)
 n_steps = 2048        # default value: 2048
@@ -51,3 +52,4 @@ gae_lambda = 0.95     # defalut value: 0.95
 clip_param = 0.1      # default value: 0.2
 ent_coef = 0.0
 seed = 42
+verbose = 0

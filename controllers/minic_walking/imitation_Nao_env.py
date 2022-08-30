@@ -167,9 +167,9 @@ class robotisImitationEnv(gym.Env):
         self.GetLeftFootPosition = self.leftfoot.getField("translation")
         self.GetRightFootPosition = self.rightfoot.getField("translation")
         
-        self.motorNames = RobotFunc.getMotorNames()
-        self.motorList, self.motorLimitList = RobotFunc.getMotors(robot=self.supervisor, num=None)
-        self.positionSensors = RobotFunc.getPositionSensors(robot=self.supervisor, timestep=self.basic_timestep, num=None)
+        self.motorNames = RobotFunc.getMotorNames(robot_name="nao")
+        self.motorList, self.motorLimitList = RobotFunc.getMotors(robot=self.supervisor, robot_name="nao", num=None)
+        self.positionSensors = RobotFunc.getPositionSensors(robot=self.supervisor, robot_name="nao", timestep=self.basic_timestep, num=None)
 
         rl_controlled_motor = ['LHipRoll', 'LHipPitch', 'LKneePitch', 'LAnklePitch', 'LAnkleRoll',
                                'RHipRoll', 'RHipPitch', 'RKneePitch', 'RAnklePitch', 'RAnkleRoll']
@@ -179,6 +179,7 @@ class robotisImitationEnv(gym.Env):
             if name in rl_controlled_motor:
                 self.joint_index.append(i)
 
+        print(self.joint_index)
         self.motor_position = np.zeros(len(self.motorList))
 
     def reset(self):
