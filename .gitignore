@@ -1,3 +1,6 @@
+# webots files
+worlds/.*.wbproj
+
 # Byte-compiled / optimized / DLL files
 wandb/
 .DS_Store
