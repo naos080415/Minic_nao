@@ -18,8 +18,7 @@ class LinearDecay(Schedule):
         self.end = final_value
         self.slope = lr_scale * (final_value - start_value)
 
-    def value(self, fraction_timesteps_left):
-        fraction_passed = 1 - fraction_timesteps_left
+    def value(self, fraction_passed):
         val = self.start + fraction_passed * self.slope
         # value should not be smaller then the minimum specified
         val = np.max([val, self.end])
@@ -47,7 +46,6 @@ class ExponentialSchedule(Schedule):
         self.slope = slope
         self.difference = start_value - final_value
 
-    def value(self, fraction_timesteps_left):
-        fraction_passed = 1 - fraction_timesteps_left
+    def value(self, fraction_passed):
         val = self.end + np.exp(-self.slope * fraction_passed) * self.difference
         return val

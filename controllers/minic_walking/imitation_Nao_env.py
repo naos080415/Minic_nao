@@ -183,6 +183,8 @@ class robotisImitationEnv(gym.Env):
         self.motor_position = np.zeros(len(self.motorList))
 
     def reset(self):
+        self.supervisor.simulationReset()
+
         self.phase = 0
         self.counter = 0
 
@@ -227,6 +229,10 @@ class robotisImitationEnv(gym.Env):
 
         self.com_pos_his = np.array(self.com_pos)
 
+        # エピソード終了時のロボットの現在位置を保存する
+        base_position = self.translation_field.getSFVec3f()
+        self.logging_robot_position = base_position
+
         self.timesteps += 1
         self.elapsed_time += 1
         self.phase += 1
@@ -247,7 +253,6 @@ class robotisImitationEnv(gym.Env):
 
             for i, ac in enumerate(action):
                 dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
-                dtheta = 0
                 ac = float(ref_act[self.joint_index[i]] + dtheta)
                 self.motorList[self.joint_index[i]].setPosition(ac)
 
@@ -386,8 +391,6 @@ class robotisImitationEnv(gym.Env):
 
         self.motor_position = RobotFunc.getValuePositionSensor(self.positionSensors)
         observation.extend(self.motor_position)
-        
-        self.logging_robot_position = base_position
 
         return np.array(observation)
 

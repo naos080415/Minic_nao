@@ -63,8 +63,8 @@ class Original_Logger(BaseCallback):
             terminal_robotPos = self.get_attr_from_env('logging_robot_position')[0][:3]
 
             # 報酬の各項の比(環境から取得)
-            imitaion_weight = self.get_attr_from_env('imitaion_weight')
-            task_weight = self.get_attr_from_env('task_weight')
+            imitaion_weight = self.get_attr_from_env('imitaion_weight')[0]
+            task_weight = self.get_attr_from_env('task_weight')[0]
 
             """
             最適なモデルを log_dir に保存する処理
@@ -96,9 +96,9 @@ class Original_Logger(BaseCallback):
             self.logger.record("original_logger/robot_position_x",
                                terminal_robotPos[0])
             self.logger.record("original_logger/robot_position_y",
-                               terminal_robotPos[2])
-            self.logger.record("original_logger/robot_position_z",
                                terminal_robotPos[1])
+            self.logger.record("original_logger/robot_position_z",
+                               terminal_robotPos[2])
 
             # 報酬の各項の比を保存
             self.logger.record("details_reward/imitaion_weight",
