@@ -22,13 +22,13 @@ policy_kwargs = dict(
     # net_arch=[dict(pi=[128, 128], vf=[128, 128])])
 
 # Earyly Termination
-ep_dur_max = 1000
+ep_dur_max = 300
 
 
 if use_wandb and train:
     import wandb
 
-    projectName = 'changing_RewardWight'
+    projectName = 'Nao'
 
     # Init the wandb providing the project name
     wandb_cache_dir = os.environ['HOME'] + '/.cache/'

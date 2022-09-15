@@ -179,7 +179,19 @@ class robotisImitationEnv(gym.Env):
             if name in rl_controlled_motor:
                 self.joint_index.append(i)
 
-        print(self.joint_index)
+
+        # ref_actionの各モータの[最小値、最大値]を計算 
+        for i in range(self.ref_action.shape[0]): 
+            for j in range(self.ref_action.shape[1]): 
+                ref_act = self.ref_action[i][j] 
+                dt = self.agent_timestep / 1000 
+
+                dtheta_min = -1 * self.motorList[j].getMaxVelocity() * dt 
+                dtheta_max = 1 * self.motorList[j].getMaxVelocity() * dt 
+
+                self.motorLimitList[j][0] = min(self.ref_action_MinMax[j][0], ref_act + dtheta_min - 0.02) 
+                self.motorLimitList[j][1] = max(self.ref_action_MinMax[j][1], ref_act + dtheta_max + 0.02) 
+
         self.motor_position = np.zeros(len(self.motorList))
 
     def reset(self):
@@ -222,6 +234,12 @@ class robotisImitationEnv(gym.Env):
     def step(self, action):
         self.apply_action(action)
 
+        cnt = 0
+        while self.supervisor.step(self.agent_timestep) != -1:
+            cnt += 1
+            if cnt >= 1:
+                break
+
         next_observations = self.get_observations()
         rewards = self.get_reward(action)
         done = self.is_done()
@@ -253,11 +271,16 @@ class robotisImitationEnv(gym.Env):
 
             for i, ac in enumerate(action):
                 dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
-                ac = float(ref_act[self.joint_index[i]] + dtheta)
+
+                if 1:
+                    # action = ref_theta + dtheta
+                    ac = float(ref_act[self.joint_index[i]] + dtheta)
+                else:
+                    # action = theta_pre + dtheta
+                    ac = float(self.motor_position[self.joint_index[i]] + dtheta)   
+                ac = np.clip(ac, self.motorLimitList[self.joint_index[i]][0], self.motorLimitList[self.joint_index[i]][1])
                 self.motorList[self.joint_index[i]].setPosition(ac)
 
-            while self.supervisor.step(self.agent_timestep) != -1:
-               break    # TODO: ここの字下げが一つ多くなっていた。どういう影響がある？
 
     def get_reward(self, action):
         sim_obs = self.get_sim_observations()
@@ -269,10 +292,12 @@ class robotisImitationEnv(gym.Env):
             joint_penalty += error*30 
 
         com_penalty = (ref_obs[14] - sim_obs[14])**2 + (0 - sim_obs[12])**2     # TODO
-        orientation_penalty = (ref_obs[3] - sim_obs[3])**2 + (ref_obs[4] - sim_obs[4])**2 + (ref_obs[5] - sim_obs[5])**2
-        imitation_reward = 0.6*np.exp(-joint_penalty)+0.3*np.exp(-com_penalty)+0.1*np.exp(-orientation_penalty)
-        #sim_reward = 50 * min((self.com_pos[2] - self.com_pos_his[2]),0.02)
+        orientation_penalty = 100 * (ref_obs[3] - sim_obs[3])**2 + (ref_obs[4] - sim_obs[4])**2 + (ref_obs[5] - sim_obs[5])**2
 
+        # imitation_reward = 0.6*np.exp(-joint_penalty)+0.3*np.exp(-com_penalty)+0.1*np.exp(-orientation_penalty)
+        imitation_reward = 0.7*np.exp(-joint_penalty)+0.0*np.exp(-com_penalty)+0.3*np.exp(-orientation_penalty)
+
+        #sim_reward = 50 * min((self.com_pos[2] - self.com_pos_his[2]),0.02)
         # vel = self.com_pos[1] - self.com_pos_his[1]
         # vel_error = 100000*(vel - 0.01)**2
         # sim_reward = np.exp(-vel_error)
@@ -287,17 +312,19 @@ class robotisImitationEnv(gym.Env):
             sim_reward -=1
 
 
-        self.logging_reward = [0.6*np.exp(-joint_penalty), 0.3*np.exp(-com_penalty), 0.1*np.exp(-orientation_penalty), sim_reward]
+        self.logging_reward = [np.exp(-joint_penalty), np.exp(-com_penalty), np.exp(-orientation_penalty), sim_reward]
         """
         sim_reward+=np.exp(-abs(euler[1])/30)-1
         """
 
-        # 報酬の比を変更する場合
-        self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
-        self.task_weight = 1 - self.imitaion_weight
-        # 報酬の比を変更しない場合
-        # self.imitaion_weight = 0.62
-        # self.task_weight = 1 - self.imitaion_weight
+        if 1:
+            # 報酬の比を変更する場合
+            self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
+            self.task_weight = 1 - self.imitaion_weight
+        else:
+            # 報酬の比を変更しない場合
+            self.imitaion_weight = 0.62
+            self.task_weight = 1 - self.imitaion_weight
 
         total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
         """
@@ -336,16 +363,16 @@ class robotisImitationEnv(gym.Env):
         obs = np.copy(self.get_sim_observations())
         ref_obs = np.copy(self.get_ref_obs())
 
-        # positionにも周期性をもたせる
-        ref_obs[1] = self.trajectory[self.phase, 1]
-        ref_obs[13] = self.trajectory[self.phase, 13]
-
-        if self.phase == 0:
-            self.robot_position_when_phase_0 = obs[0:3]
-            self.com_position_when_phase_0 = obs[12:15]
-
-        obs[1] -= self.robot_position_when_phase_0[1]
-        obs[13] -= self.com_position_when_phase_0[1]
+        # positionにも周期性をもたせる  TODO: 必要？
+        # ref_obs[1] = self.trajectory[self.phase, 1]
+        # ref_obs[13] = self.trajectory[self.phase, 13]
+        # 
+        # if self.phase == 0:
+        #     self.robot_position_when_phase_0 = obs[0:3]
+        #     self.com_position_when_phase_0 = obs[12:15]
+        # 
+        # obs[1] -= self.robot_position_when_phase_0[1]
+        # obs[13] -= self.com_position_when_phase_0[1]
 
         # 標準化処理
         obs_standardization = self.get_standardization(obs, mean=self.trajectory_mean, std=self.trajectory_std)
