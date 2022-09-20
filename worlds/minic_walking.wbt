@@ -116,6 +116,7 @@ DEF ROBOT Nao {
   rotation -0.0014797995121209266 0.000984208412616663 0.9999984207623552 1.5627820795176646
   controller "minic_walking"
   supervisor TRUE
+  selfCollision TRUE
   leftFootSlot [
     DEF LeftFoot GPS {
     }

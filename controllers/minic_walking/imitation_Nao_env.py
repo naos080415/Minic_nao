@@ -181,16 +181,17 @@ class robotisImitationEnv(gym.Env):
 
 
         # ref_actionの各モータの[最小値、最大値]を計算 
-        for i in range(self.ref_action.shape[0]): 
-            for j in range(self.ref_action.shape[1]): 
-                ref_act = self.ref_action[i][j] 
-                dt = self.agent_timestep / 1000 
+        if 0:
+            for i in range(self.ref_action.shape[0]): 
+                for j in range(self.ref_action.shape[1]): 
+                    ref_act = self.ref_action[i][j] 
+                    dt = self.agent_timestep / 1000 
 
-                dtheta_min = -1 * self.motorList[j].getMaxVelocity() * dt 
-                dtheta_max = 1 * self.motorList[j].getMaxVelocity() * dt 
+                    dtheta_min = -1 * self.motorList[j].getMaxVelocity() * dt 
+                    dtheta_max = 1 * self.motorList[j].getMaxVelocity() * dt 
 
-                self.motorLimitList[j][0] = min(self.ref_action_MinMax[j][0], ref_act + dtheta_min - 0.02) 
-                self.motorLimitList[j][1] = max(self.ref_action_MinMax[j][1], ref_act + dtheta_max + 0.02) 
+                    self.motorLimitList[j][0] = min(self.ref_action_MinMax[j][0], ref_act + dtheta_min - 0.02) 
+                    self.motorLimitList[j][1] = max(self.ref_action_MinMax[j][1], ref_act + dtheta_max + 0.02) 
 
         self.motor_position = np.zeros(len(self.motorList))
 
@@ -302,14 +303,17 @@ class robotisImitationEnv(gym.Env):
         # vel_error = 100000*(vel - 0.01)**2
         # sim_reward = np.exp(-vel_error)
 
-        sim_reward = 2 * min(sim_obs[7], 0.45) + 0.1
+        sim_reward_weight = 0.9 / (abs(ref_obs[7]) * 1.5)     # ref_obsに一箇所だけ負の値があるので, 絶対値を取っている
+        sim_reward = sim_reward_weight * min(sim_obs[7], abs(ref_obs[7]) * 1.5) + 0.1
 
-        AxisAngle = self.rotation_field.getSFRotation()
-        orientation = GetQuaternionFromAxisAngle(AxisAngle)
-        euler = GetEulerFromOrientation(orientation[3], orientation[0], orientation[1], orientation[2])
+        if abs(sim_obs[0]) >= 0.75:
+            sim_reward -= 1
 
-        if (math.degrees(euler[1])>20 or math.degrees(euler[1])<-20):
-            sim_reward -=1
+        # AxisAngle = self.rotation_field.getSFRotation()
+        # orientation = GetQuaternionFromAxisAngle(AxisAngle)
+        # euler = GetEulerFromOrientation(orientation[3], orientation[0], orientation[1], orientation[2])
+        # if (math.degrees(euler[1])>20 or math.degrees(euler[1])<-20):
+        #     sim_reward -=1
 
 
         self.logging_reward = [np.exp(-joint_penalty), np.exp(-com_penalty), np.exp(-orientation_penalty), sim_reward]
