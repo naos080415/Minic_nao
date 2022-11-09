@@ -273,7 +273,7 @@ class robotisImitationEnv(gym.Env):
             for i, ac in enumerate(action):
                 dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
 
-                if 1:
+                if 0:
                     # action = ref_theta + dtheta
                     ac = float(ref_act[self.joint_index[i]] + dtheta)
                 else:
@@ -303,11 +303,15 @@ class robotisImitationEnv(gym.Env):
         # vel_error = 100000*(vel - 0.01)**2
         # sim_reward = np.exp(-vel_error)
 
-        sim_reward_weight = 0.9 / (abs(ref_obs[7]) * 1.5)     # ref_obsに一箇所だけ負の値があるので, 絶対値を取っている
-        sim_reward = sim_reward_weight * min(sim_obs[7], abs(ref_obs[7]) * 1.5) + 0.1
+        # sim_reward_weight = 0.9 / (abs(ref_obs[7]) * 1.5)     # ref_obsに一箇所だけ負の値があるので, 絶対値を取っている
+        # sim_reward = sim_reward_weight * min(sim_obs[7], abs(ref_obs[7]) * 1.5) + 0.1
 
-        if abs(sim_obs[0]) >= 0.75:
-            sim_reward -= 1
+        sim_penalty = 50 * ((ref_obs[7]-sim_obs[7]) ** 2)
+        # sim_reward = np.exp(-sim_penalty) - (sim_obs[0]**2)
+        sim_reward = np.exp(-sim_penalty)
+
+        # if abs(sim_obs[0]) >= 0.75:
+        #     sim_reward -= 1
 
         # AxisAngle = self.rotation_field.getSFRotation()
         # orientation = GetQuaternionFromAxisAngle(AxisAngle)
@@ -316,18 +320,18 @@ class robotisImitationEnv(gym.Env):
         #     sim_reward -=1
 
 
-        self.logging_reward = [np.exp(-joint_penalty), np.exp(-com_penalty), np.exp(-orientation_penalty), sim_reward]
+        self.logging_reward = [np.exp(-joint_penalty), np.exp(-orientation_penalty), imitation_reward, sim_reward]
         """
         sim_reward+=np.exp(-abs(euler[1])/30)-1
         """
 
-        if 1:
+        if 0:
             # 報酬の比を変更する場合
             self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
             self.task_weight = 1 - self.imitaion_weight
         else:
             # 報酬の比を変更しない場合
-            self.imitaion_weight = 0.62
+            self.imitaion_weight = 1.0
             self.task_weight = 1 - self.imitaion_weight
 
         total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
