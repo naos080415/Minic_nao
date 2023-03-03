@@ -16,88 +16,59 @@ from config import hyperparameter as cfg
 class robotisImitationEnv(gym.Env):
     def __init__(self, agent_timestep=None, trajectorypath="./ref-Data/trajectory.csv", init_actionpath='./ref-Data/initAct.csv', ref_actionpath="./ref-Data/refAct.csv"):
         """
-        In the constructor the observation_space and action_space are set and references to the various components
-        of the robot required are initialized here. 
-        For the observation we are using a time window of 5, to store the last 5 episode observations.
-        
-        ref-obs
-            Num	Observation                                  Min           Max
-            0   Robot position x-axis                       -inf          +inf     
-            1   Robot position y-axis                       -inf          +inf
-            2   Robot position z-axis                       -inf          +inf
-            3   Robot roll angle                            -inf          +inf
-            4   Robot pitch angle                           -inf          +inf
-            5   Robot yaw angle                             -inf          +inf
-            6   Robot linear velocity x-axis                -inf          +inf
-            7   Robot linear velocity y-axis                -inf          +inf
-            8   Robot linear velocity z-axis                -inf          +inf
-            9   Robot angular velocity x-axis               -inf          +inf
-           10   Robot angular velocity y-axis               -inf          +inf
-           11   Robot angular velocity z-axis               -inf          +inf
-           12   Robot center-of-mass position x-axis        -inf          +inf     
-           13   Robot center-of-mass position y-axis        -inf          +inf     
-           14   Robot center-of-mass position z-axis        -inf          +inf     
-           15   Motor position HeadPitch            
-           16   Motor position HeadYaw
-           17   Motor position LAnklePitch
-           18   Motor position LAnkleRoll
+        State: SimObs + Periodic_Clock
+        SimObs: シミュレータから観測する値
+            Num	Observation                                  
+            1   Robot position z-axis                       
+            2   Robot roll angle                           
+            3   Robot pitch angle                         
+            4   Robot yaw angle                          
+            5   Robot linear velocity x-axis            
+            6   Robot linear velocity y-axis           
+            7   Robot linear velocity z-axis          
+            8   Robot angular velocity x-axis       
+            9   Robot angular velocity y-axis        
+           10   Robot angular velocity z-axis      
+           11   Motor position HeadPitch            
+           12   Motor position HeadYaw
+           13   Motor position LAnklePitch
+           14   Motor position LAnkleRoll
            15   Motor position LElbowRoll
-           15   Motor position LElbowYaw
-           15   Motor position LHipPitch
-           15   Motor position LHipRoll
-           15   Motor position LHipYawPitch
-           15   Motor position LKneePitch
-           15   Motor position LShoulderPitch
-           15   Motor position LShoulderRoll
-           15   Motor position LWristYaw
-           15   Motor position RAnklePitch
-           15   Motor position RAnkleRoll
-           15   Motor position RElbowRoll
-           15   Motor position RElbowYaw
-           15   Motor position RHipPitch
-           15   Motor position RHipRoll
-           15   Motor position RHipYawPitch
-           15   Motor position RKneePitch
-           15   Motor position RShoulderPitch
-           15   Motor position RShoulderRoll
-           15   Motor position RWristYaw
+           16   Motor position LElbowYaw
+           17   Motor position LHipPitch
+           18   Motor position LHipRoll
+           19   Motor position LHipYawPitch
+           20   Motor position LKneePitch
+           21   Motor position LShoulderPitch
+           22   Motor position LShoulderRoll
+           23   Motor position LWristYaw
+           24   Motor position RAnklePitch
+           25   Motor position RAnkleRoll
+           26   Motor position RElbowRoll
+           27   Motor position RElbowYaw
+           28   Motor position RHipPitch
+           29   Motor position RHipRoll
+           30   Motor position RHipYawPitch
+           31   Motor position RKneePitch
+           32   Motor position RShoulderPitch
+           33   Motor position RShoulderRoll
+           34   Motor position RWristYaw
+        Periodic_Clock: 周期的な信号(必要なさそうだが，ないとうまく学習してくれない(DNNをRNNを使うと，もしかしたらいらないかも？))
+           35   sin wave
+           36   cos wave
 
-            # 1   Robot position y-axis               -inf          +inf
-            # 2   Robot position z-axis               -inf          +inf
-            # 4	LeftAnkle                           -inf          +inf
-            # 5	LeftCrus                            -inf          +inf
-            # 6	LeftFemur                           -inf          +inf
-            # 7	RightAnkle                          -inf          +inf
-            # 8	RightCrus                           -inf          +inf
-            # 9	RightFemur                          -inf          +inf
-
-        Action(Forward/Backward walking task):
-            Num	BodyPost      Min       Max      Desc
-            # 0	LeftAnkle   -2.356     +2.356    Set the motor position from -2.356 to +2.356
-            # 1	LeftCrus    -2.356     +2.356    Set the motor position from -2.356 to +2.356
-            # 2	LeftFemur   -2.356     +2.356    Set the motor position from -2.356 to +2.356
-            # 3	RightAnkle  -2.356     +2.356    Set the motor position from -2.356 to +2.356
-            # 4	RightCrus   -2.356     +2.356    Set the motor position from -2.356 to +2.356
-            # 5	RightFemur  -2.356     +2.356    Set the motor position from -2.356 to +2.356
-        Action(Left/Right moving task):
-            Num	BodyPost      Min       Max      Desc
-            0	LeftAnkle    -1.0      +1.0      Set the motor position from -2.356 to +2.356
-            1	LeftCrus     -1.0      +1.0      Set the motor position from -2.356 to +2.356
-            2	LeftFemur    -1.0      +1.0      Set the motor position from -2.356 to +2.356
-            3	RightAnkle   -1.0      +1.0      Set the motor position from -2.356 to +2.356
-            4	RightCrus    -1.0      +1.0      Set the motor position from -2.356 to +2.356
-            5	RightFemur   -1.0      +1.0      Set the motor position from -2.356 to +2.356
-
-        Reward(Forward/Backward walking task):
-
-        Reward(Left/Right moving task):
-
-        Starting State:
-            [0, 0, ..., 0]
-
-        Episode Termination:
-            Robot y axis smaller than 0.50 cm
-            Robot walked more that 15 m
+        Action:
+            Num	BodyPost
+            1   LHipRoll 
+            2   LHipPitch
+            3   LKneePitch
+            4   LAnklePitch
+            5   LAnkleRoll
+            6   RHipRoll
+            7   RHipPitch
+            8   RKneePitch
+            9   RAnklePitch
+           10   RAnkleRoll
         """
         self.supervisor = Supervisor()
 
@@ -119,7 +90,7 @@ class robotisImitationEnv(gym.Env):
 
         self.setup_agent()      # motor, sensor setting
 
-        self.numObs, self.numAct = 39 * 2 + 2, 10
+        self.numObs, self.numAct = 34 + 2, 10
         # Lower and maximum values on observation space
         lowObs = -np.inf * np.ones(self.numObs)
         maxObs = np.inf * np.ones(self.numObs)
@@ -273,7 +244,7 @@ class robotisImitationEnv(gym.Env):
             for i, ac in enumerate(action):
                 dtheta = self.motorList[self.joint_index[i]].getMaxVelocity() * ac * dt
 
-                if 1:
+                if 0:
                     # action = ref_theta + dtheta
                     ac = float(ref_act[self.joint_index[i]] + dtheta)
                 else:
@@ -284,50 +255,39 @@ class robotisImitationEnv(gym.Env):
 
 
     def get_reward(self, action):
-        sim_obs = self.get_sim_observations()
+        sim_obs = self.get_observations()
         ref_obs = self.get_ref_obs() 
 
+        simObs_motor_position = self.getSim_motor_position()
         joint_penalty = 0
         for i in range(len(self.joint_index)):
-            error = 1/len(self.joint_index) * (ref_obs[15 + self.joint_index[i]]-sim_obs[15 + self.joint_index[i]])**2
+            error = 1/len(self.joint_index) * (ref_obs[15 + self.joint_index[i]]-simObs_motor_position[self.joint_index[i]])**2
             joint_penalty += error*30 
+        
 
-        com_penalty = (ref_obs[14] - sim_obs[14])**2 + (0 - sim_obs[12])**2     # TODO
-        orientation_penalty = 100 * (ref_obs[3] - sim_obs[3])**2 + (ref_obs[4] - sim_obs[4])**2 + (ref_obs[5] - sim_obs[5])**2
-
-        # imitation_reward = 0.6*np.exp(-joint_penalty)+0.3*np.exp(-com_penalty)+0.1*np.exp(-orientation_penalty)
-        imitation_reward = 0.7*np.exp(-joint_penalty)+0.0*np.exp(-com_penalty)+0.3*np.exp(-orientation_penalty)
-
-        #sim_reward = 50 * min((self.com_pos[2] - self.com_pos_his[2]),0.02)
-        # vel = self.com_pos[1] - self.com_pos_his[1]
-        # vel_error = 100000*(vel - 0.01)**2
-        # sim_reward = np.exp(-vel_error)
-
-        sim_reward_weight = 0.9 / (abs(ref_obs[7]) * 1.5)     # ref_obsに一箇所だけ負の値があるので, 絶対値を取っている
-        sim_reward = sim_reward_weight * min(sim_obs[7], abs(ref_obs[7]) * 1.5) + 0.1
-
-        if abs(sim_obs[0]) >= 0.75:
-            sim_reward -= 1
-
-        # AxisAngle = self.rotation_field.getSFRotation()
-        # orientation = GetQuaternionFromAxisAngle(AxisAngle)
-        # euler = GetEulerFromOrientation(orientation[3], orientation[0], orientation[1], orientation[2])
-        # if (math.degrees(euler[1])>20 or math.degrees(euler[1])<-20):
-        #     sim_reward -=1
+        simObs_orientation = self.getSim_base_orientation()
+        orientation_penalty = 10 * ((ref_obs[3] - simObs_orientation[0])**2 + (ref_obs[4] - simObs_orientation[1])**2 + (ref_obs[5] - simObs_orientation[2])**2)
 
 
-        self.logging_reward = [np.exp(-joint_penalty), np.exp(-com_penalty), np.exp(-orientation_penalty), sim_reward]
+        imitation_reward = 0.7*np.exp(-joint_penalty)+0.3*np.exp(-orientation_penalty)
+
+        simObs_robot_position = self.getSim_base_position()
+        simObs_robot_velocity = self.getSim_linear_velocity()
+        sim_penalty = 50 * ((ref_obs[7]*1-simObs_robot_velocity[1]) ** 2)
+        sim_reward = np.exp(-sim_penalty)
+
+        self.logging_reward = [np.exp(-joint_penalty), np.exp(-orientation_penalty), imitation_reward, sim_reward]
         """
         sim_reward+=np.exp(-abs(euler[1])/30)-1
         """
 
-        if 1:
+        if 0:
             # 報酬の比を変更する場合
             self.imitaion_weight = self.imitaion_weight_scheduler.value(self.timesteps/(0.8 * cfg.total_timesteps))
             self.task_weight = 1 - self.imitaion_weight
         else:
             # 報酬の比を変更しない場合
-            self.imitaion_weight = 0.62
+            self.imitaion_weight = 0.6
             self.task_weight = 1 - self.imitaion_weight
 
         total_reward = self.imitaion_weight*imitation_reward+self.task_weight*sim_reward
@@ -344,16 +304,14 @@ class robotisImitationEnv(gym.Env):
         base_position = self.translation_field.getSFVec3f()
         robot_position = self.robot.getPosition()
 
-        AxisAngle = self.rotation_field.getSFRotation()
-        orientation = GetQuaternionFromAxisAngle(AxisAngle)
-        euler = GetEulerFromOrientation(orientation[3], orientation[0], orientation[1], orientation[2])
+        euler = self.getSim_base_orientation()
 
         if base_position[2] < (self.naoRobot_hight * 0.85):     # nao Robotを利用するとき
             done = True
-        if (math.degrees(euler[0]) > 45 or math.degrees(euler[0]) < -45):
-            done = True
-        elif (math.degrees(euler[1]) > 45 or math.degrees(euler[1]) < -45):
-            done = True
+        # if (math.degrees(euler[0]) > 45 or math.degrees(euler[0]) < -45):
+        #     done = True
+        # elif (math.degrees(euler[1]) > 45 or math.degrees(euler[1]) < -45):
+        #     done = True
         
         return done
 
@@ -379,48 +337,71 @@ class robotisImitationEnv(gym.Env):
         # obs[13] -= self.com_position_when_phase_0[1]
 
         # 標準化処理
-        obs_standardization = self.get_standardization(obs, mean=self.trajectory_mean, std=self.trajectory_std)
-        ref_obs_standardization = self.get_standardization(ref_obs, mean=self.trajectory_mean, std=self.trajectory_std)
+        # obs_standardization = self.get_standardization(obs, mean=self.trajectory_mean, std=self.trajectory_std)
+        # ref_obs_standardization = self.get_standardization(ref_obs, mean=self.trajectory_mean, std=self.trajectory_std)
         
         clock_time = [math.sin((2 * math.pi * self.elapsed_time)/self.ref_action.shape[0]),
                       math.cos((2 * math.pi * self.elapsed_time)/self.ref_action.shape[0])]
         clock_time = np.array(clock_time)
         
         # return np.concatenate([obs_standardization, ref_obs_standardization, clock_time])
-        return np.concatenate([obs, ref_obs, clock_time])
+        # return np.concatenate([obs, ref_obs, clock_time])
+        return np.concatenate([obs, clock_time])
 
-    def get_sim_observations(self):
-        observation = []
-
-        # x,y,z pos; x, y, z, w quaternion
+    def getSim_base_position(self):
         base_position = self.translation_field.getSFVec3f()
 
+        return base_position
+
+    def getSim_base_orientation(self):
         base_orientation = self.rotation_field.getSFRotation()
         orientation = GetQuaternionFromAxisAngle(base_orientation)
         base_orientation = GetEulerFromOrientation(orientation[3], orientation[0], orientation[1], orientation[2])
 
-        observation.append(base_position[0])
-        observation.append(base_position[1])
-        observation.append(base_position[2])
+        return base_orientation
+
+    def getSim_linear_velocity(self):
+        base_velocity = self.robot.getVelocity()
+        linear_velocity = base_velocity[:3]
+
+        return linear_velocity
+
+    def getSim_angular_velocity(self):
+        base_velocity = self.robot.getVelocity()
+        angular_velocity = base_velocity[3:]
+    
+        return angular_velocity
+
+    def getSim_motor_position(self):
+        motor_position = RobotFunc.getValuePositionSensor(self.positionSensors)
+
+        return motor_position
+
+    def get_sim_observations(self):
+        observation = []
+
+        base_position_z = self.getSim_base_position()[2]
+        base_orientation = self.getSim_base_orientation()
+
+        observation.append(base_position_z)
         observation.append(base_orientation[0])
         observation.append(base_orientation[1])
         observation.append(base_orientation[2])
 
         # linear velocity--0,1,2; angular velocity--3,4,5
-        base_velocity = self.robot.getVelocity()
-        observation.append(base_velocity[0])
-        observation.append(base_velocity[1])
-        observation.append(base_velocity[2])
-        observation.append(base_velocity[3])
-        observation.append(base_velocity[4])
-        observation.append(base_velocity[5])
+        linear_velocity = self.getSim_linear_velocity()
+        angular_velocity = self.getSim_angular_velocity()
 
-        self.com_pos = self.robot.getCenterOfMass()
-        observation.append(self.com_pos[0])
-        observation.append(self.com_pos[1])
-        observation.append(self.com_pos[2])
+        observation.append(linear_velocity[0])
+        observation.append(linear_velocity[1])
+        observation.append(linear_velocity[2])
+        observation.append(angular_velocity[0])
+        observation.append(angular_velocity[1])
+        observation.append(angular_velocity[2])
 
-        self.motor_position = RobotFunc.getValuePositionSensor(self.positionSensors)
+        self.com_pos = self.robot.getCenterOfMass()     # no Used
+
+        self.motor_position = self.getSim_motor_position()
         observation.extend(self.motor_position)
 
         return np.array(observation)

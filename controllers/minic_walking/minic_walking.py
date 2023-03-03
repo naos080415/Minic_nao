@@ -41,13 +41,14 @@ def sb3_PPO():
                     callback=Original_Logger(log_dir=cfg.model_dir, gamma=cfg.gamma, queue_size=50, verbose=cfg.verbose))
         model.save(os.path.join(cfg.model_dir, 'finished_model'))
     else:
-        model = PPO.load("fixed_task_reward.zip")
+        model = PPO.load("hogehoge.zip")
 
         for i in range(10):
             obs = nao_env_timelimit.reset()
-
+            
             episode_score = 0
             while True:
+
                 action, _states = model.predict(obs, deterministic=True)
                 obs, reward, done, _ = nao_env_timelimit.step(action)
                 episode_score += reward
@@ -55,7 +56,7 @@ def sb3_PPO():
                 if done:
                     print("socre", episode_score)
                     break
-
+                
 
 def sb3_RecurrentPPO():
     from stable_baselines3.common.utils import set_random_seed

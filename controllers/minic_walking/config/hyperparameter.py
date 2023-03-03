@@ -1,4 +1,5 @@
 import os
+import sys
 import datetime
 import torch as th
 import torch.nn
@@ -22,13 +23,16 @@ policy_kwargs = dict(
     # net_arch=[dict(pi=[128, 128], vf=[128, 128])])
 
 # Earyly Termination
-ep_dur_max = 300
+if train == True:
+    ep_dur_max = 500
+else:
+    ep_dur_max = sys.maxsize
 
 
 if use_wandb and train:
     import wandb
 
-    projectName = 'Nao'
+    projectName = 'AROB'
 
     # Init the wandb providing the project name
     wandb_cache_dir = os.environ['HOME'] + '/.cache/'
@@ -42,7 +46,7 @@ PPOのときのパラメータ
 """
 # verbose – (int) the verbosity level: 0 none, 1 training information, 2 tensorflow debug 
 
-total_timesteps = int(10e6)
+total_timesteps = int(30.5e6)
 n_steps = 2048        # default value: 2048
 batch_size = 128      # default value: 64
 n_epochs = 10         # default value: 10
